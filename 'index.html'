@@ -1,1 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>J.A.R.V.I.S. // TACTICAL HUD</title>
+    <style>
+        :root {
+            --bg-color: #020912;
+            --cyan: #00f3ff;
+            --cyan-dim: rgba(0, 243, 255, 0.25);
+            --cyan-glow: rgba(0, 243, 255, 0.7);
+            --blue: #0066ff;
+            --amber: #ffae00;
+            --amber-glow: rgba(255, 174, 0, 0.8);
+            --grid-line: rgba(0, 243, 255, 0.08);
+        }
 
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(circle at center, #061c33 0%, #020912 75%),
+                linear-gradient(var(--grid-line) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+            background-size: 100% 100%, 40px 40px, 40px 40px;
+            color: var(--cyan);
+            font-family: 'Courier New', Courier, monospace;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        /* Corner Reticles */
+        .corner {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border: 2px solid var(--cyan);
+            box-shadow: 0 0 10px var(--cyan-dim);
+            pointer-events: none;
+        }
+        .tl { top: 20px; left: 20px; border-right: none; border-bottom: none; }
+        .tr { top: 20px; right: 20px; border-left: none; border-bottom: none; }
+        .bl { bottom: 20px; left: 20px; border-right: none; border-top: none; }
+        .br { bottom: 20px; right: 20px; border-left: none; border-top: none; }
+
+        /* Top Status Bar */
+        .top-bar {
+            position: absolute;
+            top: 25px;
+            width: calc(100% - 140px);
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--cyan-dim);
+            padding-bottom: 8px;
+            font-size: 0.75rem;
+            letter-spacing: 2px;
+            text-shadow: 0 0 8px var(--cyan-glow);
+        }
+
+        .status-badge {
+            color: var(--amber);
+            text-shadow: 0 0 8px var(--amber-glow);
+            font-weight: bold;
+        }
+
+        /* Main HUD Layout */
+        .hud-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 92%;
+            max-width: 1300px;
+            height: 75vh;
+            z-index: 2;
+        }
+
+        /* Side Panels */
+        .panel {
+            width: 260px;
+            height: 420px;
+            border: 1px solid var(--cyan-dim);
+            background: rgba(0, 20, 40, 0.35);
+            backdrop-filter: blur(4px);
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            box-shadow: inset 0 0 20px rgba(0, 243, 255, 0.05);
+        }
+
+        .panel::before {
+            content: '';
+            position: absolute;
+            top: -1px;
+            left: 20px;
+            width: 60px;
+            height: 3px;
+            background: var(--cyan);
+            box-shadow: 0 0 8px var(--cyan);
+        }
+
+        .panel-title {
+            font-size: 0.7rem;
+            letter-spacing: 2px;
+            border-bottom: 1px solid var(--cyan-dim);
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* Equalizer / Data Graphs */
+        .graph-box {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            height: 90px;
+            padding: 5px;
+            border: 1px solid rgba(0, 243, 255, 0.15);
+            background: rgba(0, 0, 0, 0.4);
+            gap: 3px;
+        }
+
+        .bar {
+            flex: 1;
+            background: linear-gradient(to top, var(--blue), var(--cyan));
+            box-shadow: 0 0 6px var(--cyan-glow);
+            height: 20%;
+            transition: height 0.12s ease-out;
+        }
+
+        .bar.amber {
+            background: linear-gradient(to top, #b35900, var(--amber));
+            box-shadow: 0 0 6px var(--amber-glow);
+        }
+
+        /* Hex / Telemetry Readout */
+        .telemetry-list {
+            font-size: 0.7rem;
+            line-height: 1.6;
+            color: rgba(0, 243, 255, 0.8);
+        }
+
+        .telemetry-row {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px dashed rgba(0, 243, 255, 0.15);
+            padding: 2px 0;
+        }
+
+        .progress-track {
+            width: 100%;
+            height: 6px;
+            background: rgba(0, 243, 255, 0.1);
+            margin-top: 6px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 78%;
+            background: var(--cyan);
+            box-shadow: 0 0 10px var(--cyan);
+            animation: scanBar 4s infinite alternate ease-in-out;
+        }
+
+        /* Central Core Reactor */
+        .core-container {
+            position: relative;
+            width: 380px;
+            height: 380px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .ring {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        /* Outer Tick Ring */
+        .ring-1 {
+            width: 370px;
+            height: 370px;
+            border: 1px dashed var(--cyan-dim);
+            animation: spinCW 30s linear infinite;
+        }
+
+        /* Segmented Heavy Arc */
+        .ring-2 {
+            width: 325px;
+            height: 325px;
+            border: 4px solid transparent;
+            border-top: 4px solid var(--cyan);
+            border-bottom: 4px solid var(--cyan);
+            box-shadow: 0 0 15px var(--cyan-dim);
+            animation: spinCCW 12s linear infinite;
+        }
+
+        /* Amber Accent Ring */
+        .ring-3 {
+            width: 280px;
+            height: 280px;
+            border: 2px solid transparent;
+            border-left: 3px solid var(--amber);
+            border-right: 3px solid var(--amber);
+            filter: drop-shadow(0 0 6px var(--amber-glow));
+            animation: spinCW 8s linear infinite;
+        }
+
+        /* Inner Fine Dotted Ring */
+        .ring-4 {
+            width: 230px;
+            height: 230px;
+            border: 3px dotted var(--cyan);
+            opacity: 0.7;
+            animation: spinCCW 18s linear infinite;
+        }
+
+        /* Reactive Core */
+        .core-center {
+            width: 155px;
+            height: 155px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(0, 243, 255, 0.35) 0%, rgba(0, 102, 255, 0.15) 60%, transparent 100%);
+            border: 2px solid var(--cyan);
+            box-shadow: 0 0 25px var(--cyan-glow), inset 0 0 25px var(--cyan-glow);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            animation: pulseCore 2.5s infinite ease-in-out;
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+            z-index: 5;
+        }
+
+        .core-container:hover .core-center {
+            box-shadow: 0 0 40px var(--cyan), inset 0 0 30px var(--cyan);
+        }
+
+        .core-title {
+            font-size: 1.1rem;
+            font-weight: bold;
+            letter-spacing: 3px;
+            color: #fff;
+            text-shadow: 0 0 10px var(--cyan);
+        }
+
+        .core-sub {
+            font-size: 0.65rem;
+            color: var(--amber);
+            margin-top: 4px;
+            letter-spacing: 1px;
+        }
+
+        /* Bottom Waveform & Console */
+        .bottom-bar {
+            position: absolute;
+            bottom: 25px;
+            width: calc(100% - 140px);
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            border-top: 1px solid var(--cyan-dim);
+            padding-top: 8px;
+            font-size: 0.7rem;
+        }
+
+        .console-output {
+            color: var(--cyan);
+            text-shadow: 0 0 5px var(--cyan-dim);
+        }
+
+        /* Keyframes */
+        @keyframes spinCW {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes spinCCW {
+            0% { transform: rotate(360deg); }
+            100% { transform: rotate(0deg); }
+        }
+
+        @keyframes pulseCore {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        @keyframes scanBar {
+            0% { width: 35%; }
+            100% { width: 92%; }
+        }
+
+        /* Responsive Tweaks for Mobile/Small Screens */
+        @media (max-width: 950px) {
+            .panel { display: none; }
+            .hud-wrapper { justify-content: center; }
+            .core-container { width: 300px; height: 300px; }
+            .ring-1 { width: 290px; height: 290px; }
+            .ring-2 { width: 250px; height: 250px; }
+            .ring-3 { width: 210px; height: 210px; }
+            .ring-4 { width: 170px; height: 170px; }
+            .core-center { width: 120px; height: 120px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="corner tl"></div>
+    <div class="corner tr"></div>
+    <div class="corner bl"></div>
+    <div class="corner br"></div>
+
+    <div class="top-bar">
+        <div>SYS.OS // <span class="status-badge" id="sys-state">ONLINE</span></div>
+        <div id="clock">00:00:00 UTC</div>
+        <div>NET.LINK // SECURE</div>
+    </div>
+
+    <div class="hud-wrapper">
+        <!-- Left Data Panel -->
+        <div class="panel">
+            <div>
+                <div class="panel-title"><span>NEURAL TELEMETRY</span><span>CH-01</span></div>
+                <div class="graph-box" id="eq-left"></div>
+            </div>
+
+            <div class="telemetry-list">
+                <div class="telemetry-row"><span>CPU LOAD</span><span id="cpu-val">42%</span></div>
+                <div class="telemetry-row"><span>MEMORY ALLOC</span><span id="mem-val">6.4 GB</span></div>
+                <div class="telemetry-row"><span>SYNAPSE LATENCY</span><span>1.2 ms</span></div>
+                <div class="telemetry-row"><span>UPLINK STREAM</span><span style="color:var(--amber)">ACTIVE</span></div>
+                <div class="progress-track"><div class="progress-fill"></div></div>
+            </div>
+
+            <div>
+                <div class="panel-title"><span>FREQUENCY MATRIX</span><span>HZ</span></div>
+                <div class="graph-box" id="eq-left-bottom"></div>
+            </div>
+        </div>
+
+        <!-- Center Core -->
+        <div class="core-container" id="core-btn" title="Click to Pulse / Speak">
+            <div class="ring ring-1"></div>
+            <div class="ring ring-2"></div>
+            <div class="ring ring-3"></div>
+            <div class="ring ring-4"></div>
+            <div class="core-center" id="core-disc">
+                <div class="core-title">J.A.R.V.I.S.</div>
+                <div class="core-sub" id="core-status">STANDBY</div>
+            </div>
+        </div>
+
+        <!-- Right Data Panel -->
+        <div class="panel">
+            <div>
+                <div class="panel-title"><span>AUDIO / VOICE</span><span>I/O</span></div>
+                <div class="graph-box" id="eq-right"></div>
+            </div>
+
+            <div class="telemetry-list">
+                <div class="telemetry-row"><span>CORE TEMP</span><span>312 K</span></div>
+                <div class="telemetry-row"><span>POWER OUTPUT</span><span>98.4%</span></div>
+                <div class="telemetry-row"><span>THREAT LEVEL</span><span style="color:var(--cyan)">ZERO</span></div>
+                <div class="telemetry-row"><span>PACKET LOSS</span><span>0.00%</span></div>
+                <div class="progress-track"><div class="progress-fill" style="animation-delay: -2s;"></div></div>
+            </div>
+
+            <div>
+                <div class="panel-title"><span>HEX DUMP</span><span>0x8F</span></div>
+                <div id="hex-stream" style="font-size: 0.65rem; color: rgba(0,243,255,0.6); line-height: 1.4; height: 90px; overflow: hidden;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bottom-bar">
+        <div class="console-output" id="console-msg">&gt; INITIALIZING INTERFACE...</div>
+        <div>TAP CORE TO ENGAGE VOICE</div>
+    </div>
+
+    <script>
+        // Populate Equalizer Bars
+        function createBars(containerId, count, amberChance = 0.2) {
+            const container = document.getElementById(containerId);
+            const bars = [];
+            for (let i = 0; i < count; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'bar' + (Math.random() < amberChance ? ' amber' : '');
+                container.appendChild(bar);
+                bars.push(bar);
+            }
+            return bars;
+        }
+
+        const leftBars = createBars('eq-left', 16, 0.15);
+        const leftBottomBars = createBars('eq-left-bottom', 16, 0.3);
+        const rightBars = createBars('eq-right', 16, 0.2);
+
+        let isSpeaking = false;
+
+        // Animate Data Graphs & Telemetry
+        setInterval(() => {
+            const intensity = isSpeaking ? 95 : 55;
+            [...leftBars, ...leftBottomBars, ...rightBars].forEach(bar => {
+                const h = Math.floor(Math.random() * intensity) + 10;
+                bar.style.height = h + '%';
+            });
+
+            // Update random CPU/Memory numbers
+            document.getElementById('cpu-val').innerText = (Math.floor(Math.random() * 25) + 30) + '%';
+            
+            // Update Hex Stream
+            const hexBox = document.getElementById('hex-stream');
+            const hexLine = '0x' + Math.random().toString(16).substr(2, 8).toUpperCase() + ' // ' + Math.random().toString(16).substr(2, 6).toUpperCase();
+            hexBox.innerHTML = hexLine + '<br>' + hexBox.innerHTML.split('<br>').slice(0, 4).join('<br>');
+
+            // React core scale when speaking
+            const coreDisc = document.getElementById('core-disc');
+            if (isSpeaking) {
+                const scale = 1 + (Math.random() * 0.14);
+                coreDisc.style.transform = ⁠ scale(${scale}) ⁠;
+            } else {
+                coreDisc.style.transform = '';
+            }
+        }, 140);
+
+        // Live Clock
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('clock').innerText = now.toTimeString().split(' ')[0] + ' LOC';
+        }, 1000);
+
+        // Speech Synthesis & Core Interaction
+        function speakStatus(text) {
+            const statusEl = document.getElementById('core-status');
+            const consoleEl = document.getElementById('console-msg');
+            statusEl.innerText = 'ACTIVE';
+            consoleEl.innerText = '> ' + text.toUpperCase();
+
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 0.95;
+                utterance.pitch = 0.85;
+                utterance.onstart = () => { isSpeaking = true; };
+                utterance.onend = () => { 
+                    isSpeaking = false; 
+                    statusEl.innerText = 'OPERATIONAL';
+                };
+                window.speechSynthesis.speak(utterance);
+            } else {
+                isSpeaking = true;
+                setTimeout(() => { isSpeaking = false; statusEl.innerText = 'OPERATIONAL'; }, 2000);
+            }
+        }
+
+        window.onload = () => {
+            setTimeout(() => {
+                speakStatus("Systems operational, Sir.");
+            }, 800);
+        };
+
+        document.getElementById('core-btn').addEventListener('click', () => {
+            speakStatus("All telemetry nominal. Awaiting input.");
+        });
+    </script>
+</body>
+</html>
