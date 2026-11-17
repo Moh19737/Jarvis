@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>J.A.R.V.I.S. OS</title>
+<style>
+body {
+margin: 0;
+padding: 0;
+background-color: #0d1117;
+color: #58a6ff;
+font-family: 'Courier New', Courier, monospace;
+display: flex;
+justify-content: center;
+align-items: center;
+height: 100vh;
+overflow: hidden;
+}
+.container {
+text-align: center;
+border: 2px solid #1f6feb;
+padding: 40px;
+border-radius: 15px;
+background-color: rgba(13, 17, 23, 0.8);
+box-shadow: 0 0 20px #1f6feb;
+}
+h1 {
+font-size: 3rem;
+margin-bottom: 10px;
+text-shadow: 0 0 10px #58a6ff;
+}
+p {
+font-size: 1.5rem;
+}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>J.A.R.V.I.S.</h1>
+<p id="greeting">Initializing systems...</p>
+</div>
+<script>
+window.onload = function() {
+setTimeout(function() {
+const greetingText = "Welcome back, Sir Muhammad Al-Sar.";
+document.getElementById('greeting').innerText = greetingText;
+if ('speechSynthesis' in window) {
+const utterance = new SpeechSynthesisUtterance(greetingText);
+utterance.rate = 0.9;
+utterance.pitch = 0.8;
+window.speechSynthesis.speak(utterance);
+}
+}, 1000);
+};
+</script>
+</body>
+</html>
